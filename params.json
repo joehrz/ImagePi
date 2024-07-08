@@ -1,0 +1,9 @@
+{
+    "camera_a": 0,
+    "camera_b": 0,
+    "angle": 90,
+    "seconds": 10,
+    "plant_name": "Default Plant",
+    "folder_path": "/path/to/default",
+    "pi_hostname": "10.205.10.57"
+}

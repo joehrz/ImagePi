@@ -1,9 +1,13 @@
 {
-    "camera_a": 0,
-    "camera_b": 0,
+    "camera_a": 1,
+    "camera_b": 1,
     "angle": 90,
-    "seconds": 10,
-    "plant_name": "Default Plant",
-    "folder_path": "/path/to/default",
-    "pi_hostname": "10.205.10.57"
+    "seconds": "3",
+    "plant_name": "test_55_",
+    "folder_path": "/Users/Evelyn/Desktop/ImagePi/images",
+    "pi_hostname": "10.205.10.58",
+    "camera_c": 1,
+    "camera_d": 1,
+    "timestamp": "test_55_2024-07-16-1718",
+    "folder_with_date": "/Users/Evelyn/Desktop/ImagePi/images/test_55_2024-07-16-1718"
 }

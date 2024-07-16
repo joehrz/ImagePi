@@ -84,29 +84,23 @@ class InputGUI:
         self.camera_d_checkbutton = tk.Checkbutton(self.master, text="Camera D", variable=self.camera_d_var)
         self.camera_d_checkbutton.grid(row=4,column=1)
 
-        acmd = (self.master.register(self.validate_angle_entry), "%P")
         tcmd = (self.master.register(self.validate_text_entry), "%P")
     
 
-        self.seconds_label = tk.Label(self.master, text="Image Capture Delay:")
-        self.seconds_label.grid(row=5)
-        self.seconds_entry = tk.Entry(self.master, validate="key", validatecommand=acmd)
-        self.seconds_entry.grid(row=5, column=1)
-
         self.plant_name_label = tk.Label(self.master, text="Plant Name:")
-        self.plant_name_label.grid(row=6)
+        self.plant_name_label.grid(row=5)
         self.plant_name_entry = tk.Entry(self.master, validate="key", validatecommand=tcmd)
-        self.plant_name_entry.grid(row=6, column=1)
+        self.plant_name_entry.grid(row=5, column=1)
 
-        tk.Label(self.master, text="Folder Path:").grid(row=8)
+        tk.Label(self.master, text="Folder Path:").grid(row=6)
         self.folder_path_entry = tk.Entry(self.master)
-        self.folder_path_entry.grid(row=7, column=1)
+        self.folder_path_entry.grid(row=6, column=1)
 
-        tk.Button(self.master, text="Browse...", command=self.browse_folder).grid(row=8, column=2)
-        tk.Button(self.master, text="Submit", command=self.submit).grid(row=9, column=0)
-        tk.Button(self.master, text="Inspect Images", command=self.perform_inspection).grid(row=10, column=0)
-        tk.Button(self.master, text="Start Imaging", command=self.start_imaging).grid(row=10, column=1)
-        tk.Button(self.master, text="Quit", command=self.master.quit).grid(row=10, column=2)
+        tk.Button(self.master, text="Browse", command=self.browse_folder).grid(row=6, column=2)
+        tk.Button(self.master, text="Submit", command=self.submit).grid(row=7, column=0)
+        tk.Button(self.master, text="Inspect Images", command=self.perform_inspection).grid(row=9, column=0)
+        tk.Button(self.master, text="Start Imaging", command=self.start_imaging).grid(row=9, column=1)
+        tk.Button(self.master, text="Quit", command=self.master.quit).grid(row=9, column=2)
 
 
     def browse_folder(self):
@@ -125,7 +119,6 @@ class InputGUI:
             'camera_c': self.camera_c_var.get(),
             'camera_d': self.camera_d_var.get(),
             'plant_name': self.plant_name_entry.get().strip(),  # Strip whitespace
-            'seconds': self.seconds_entry.get().strip(),  # Strip whitespace
             'folder_path': self.folder_path_entry.get().strip()  # Strip whitespace
         }
 

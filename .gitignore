@@ -17,3 +17,10 @@ env/
 
 # Ignore logs
 *.log
+
+# Ignore Images file
+images
+*.png
+
+# Ignore env file
+.env

@@ -102,6 +102,7 @@ class CameraSystem:
     def fetch_and_display_images(self, image_directory):
         raw_images = self.fetch_images(image_directory)
         self.images = [(self.resize_image(img_data), file_name) for img_data, file_name in raw_images]
+        self.images.sort(key=lambda x: self.camera_labels.get(x[1], "Unknown"))  # Sort images based on camera labels
         self.create_image_window()
 
     def fetch_images(self, image_directory):
@@ -176,6 +177,7 @@ if __name__ == "__main__":
         camera_system.inspect()
     finally:
         client.close()
+
 
 
 

@@ -4,13 +4,19 @@ import threading
 from datetime import datetime
 import paramiko
 import logging
+import time
+import os
+from dotenv import load_dotenv
 
 from imagecapture import CameraSystem
 from credentials import NetworkConfig
 from config import Config
 from network import NetworkManager
 
-# Configure logging
+# Load environment variables from a .env file
+load_dotenv()
+
+# Configure the root logger in the main module
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
 
 class InputGUI:
@@ -33,6 +39,10 @@ class InputGUI:
         self.ssh_client = paramiko.SSHClient()
         self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
 
+        # Load credentials from environment variables
+        self.pi_username = os.getenv('PI_USERNAME')
+        self.pi_password = os.getenv('PI_PASSWORD')
+
         if self.initialize_network_and_ssh():
             self.setup_gui_components()
         else:
@@ -47,15 +57,14 @@ class InputGUI:
         """
         net_config = NetworkConfig(self.master)
         try:
-            net_config.prompt_credentials()
             net_config.discover_pi_hostname()
 
-            if net_config.hostname and net_config.username and net_config.password:
-                self.network_manager = NetworkManager(net_config.hostname, net_config.username, net_config.password)
+            if net_config.hostname and self.pi_username and self.pi_password:
+                self.network_manager = NetworkManager(net_config.hostname, self.pi_username, self.pi_password)
                 self.config.set_value('pi_hostname', net_config.hostname)
                 self.config.save_config()
 
-                self.ssh_client.connect(net_config.hostname, username=net_config.username, password=net_config.password)
+                self.ssh_client.connect(net_config.hostname, username=self.pi_username, password=self.pi_password)
                 logging.info("Network and SSH connection established successfully.")
                 return True
             else:
@@ -76,6 +85,7 @@ class InputGUI:
                 messagebox.showinfo("Success", message)
             else:
                 messagebox.showerror("Error", message)
+            self.enable_buttons()
         self.master.after(100, update_status)
 
     def validate_text_entry(self, text):
@@ -144,12 +154,22 @@ class InputGUI:
 
     def setup_action_buttons(self):
         """
-        Sets up action buttons (Submit, Inspect Images, Start Imaging, Quit) in the GUI.
+        Sets up action buttons (Submit, Inspect Images, Start Imaging, Reset, Quit) in the GUI.
         """
-        tk.Button(self.master, text="Submit", command=self.submit).grid(row=7, column=0)
-        tk.Button(self.master, text="Inspect Images", command=self.perform_inspection).grid(row=9, column=0)
-        tk.Button(self.master, text="Start Imaging", command=self.start_imaging).grid(row=9, column=1)
-        tk.Button(self.master, text="Quit", command=self.master.quit).grid(row=9, column=2)
+        self.submit_button = tk.Button(self.master, text="Submit", command=self.submit)
+        self.submit_button.grid(row=7, column=0)
+
+        self.inspect_button = tk.Button(self.master, text="Inspect Images", command=self.perform_inspection)
+        self.inspect_button.grid(row=9, column=0)
+
+        self.start_imaging_button = tk.Button(self.master, text="Start Imaging", command=self.start_imaging)
+        self.start_imaging_button.grid(row=9, column=1)
+
+        self.reset_button = tk.Button(self.master, text="Reset", command=self.reset)
+        self.reset_button.grid(row=9, column=2)
+
+        self.quit_button = tk.Button(self.master, text="Quit", command=self.master.quit)
+        self.quit_button.grid(row=9, column=3)
 
     def browse_folder(self):
         """
@@ -229,21 +249,46 @@ class InputGUI:
         self.update_configuration(inputs)
         self.transfer_configuration()
 
+    def disable_buttons(self):
+        """
+        Disables the Inspect and Start Imaging buttons to prevent multiple clicks.
+        """
+        self.inspect_button.config(state=tk.DISABLED)
+        self.start_imaging_button.config(state=tk.DISABLED)
+
+    def enable_buttons(self):
+        """
+        Enables the Inspect and Start Imaging buttons.
+        """
+        self.inspect_button.config(state=tk.NORMAL)
+        self.start_imaging_button.config(state=tk.NORMAL)
+
     def perform_inspection(self):
         """
         Creates and uses the CameraSystem instance for inspection.
         """
-        if hasattr(self, 'ssh_client'):
-            camera_system = CameraSystem(self.ssh_client, self.master, self.config)
-            camera_system.inspect()
-            logging.info("Inspection performed successfully.")
-        else:
-            logging.error("SSH client is not initialized.")
+        self.disable_buttons()
+        def task():
+            try:
+                if hasattr(self, 'ssh_client'):
+                    camera_system = CameraSystem(self.ssh_client, self.master, self.config)
+                    camera_system.inspect()
+                    logging.info("Inspection performed successfully.")
+                    self.update_gui_from_thread("Inspection performed successfully.")
+                else:
+                    self.update_gui_from_thread("SSH client is not initialized.")
+            except Exception as e:
+                self.update_gui_from_thread(f"Error during inspection: {str(e)}")
+            finally:
+                self.enable_buttons()
+
+        threading.Thread(target=task).start()
 
     def start_imaging(self):
         """
         Starts a background task to create and use the CameraSystem instance for imaging.
         """
+        self.disable_buttons()
         def task():
             try:
                 if hasattr(self, 'ssh_client'):
@@ -254,13 +299,55 @@ class InputGUI:
                     self.update_gui_from_thread("SSH client is not initialized.")
             except Exception as e:
                 self.update_gui_from_thread(f"Error during imaging: {str(e)}")
+            finally:
+                self.enable_buttons()
 
         threading.Thread(target=task).start()
+
+    def reboot_raspberry_pi(self):
+        """
+        Reboots the Raspberry Pi by sending a reboot command over SSH.
+        """
+        try:
+            self.ssh_client.exec_command('sudo reboot')
+            logging.info("Reboot command sent to Raspberry Pi.")
+            self.ssh_client.close()
+            threading.Thread(target=self.wait_for_pi_to_reboot).start()
+        except Exception as e:
+            logging.error(f"Failed to send reboot command: {e}")
+            messagebox.showerror("Reboot Error", f"Failed to send reboot command: {e}")
+
+    def wait_for_pi_to_reboot(self):
+        """
+        Waits for the Raspberry Pi to come back online after a reboot.
+        """
+        time.sleep(60)  # Wait for 60 seconds before attempting to reconnect
+        pi_hostname = self.config.get_value('pi_hostname')
+        while True:
+            try:
+                self.ssh_client = paramiko.SSHClient()
+                self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+                self.ssh_client.connect(pi_hostname, username=self.pi_username, password=self.pi_password)
+                logging.info("Raspberry Pi is back online.")
+                self.master.after(100, lambda: messagebox.showinfo("Reboot", "Raspberry Pi is back online."))
+                break
+            except Exception as e:
+                logging.info("Waiting for Raspberry Pi to come back online...")
+                time.sleep(5)
+
+    def reset(self):
+        """
+        Resets the application by rebooting the Raspberry Pi.
+        """
+        reboot_confirmation = messagebox.askyesno("Reboot Confirmation", "Are you sure you want to reboot the Raspberry Pi?")
+        if reboot_confirmation:
+            self.reboot_raspberry_pi()
 
 if __name__ == "__main__":
     root = tk.Tk()
     app = InputGUI(root)
     root.mainloop()
+
 
 
 

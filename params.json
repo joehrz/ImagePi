@@ -3,11 +3,11 @@
     "camera_b": 1,
     "angle": 90,
     "seconds": "3",
-    "plant_name": "test_79_",
+    "plant_name": "test_85_",
     "folder_path": "/Users/Evelyn/Desktop/ImagePi",
     "pi_hostname": "10.205.10.52",
-    "camera_c": 0,
-    "camera_d": 0,
-    "timestamp": "test_79_2024-07-24-1614",
-    "folder_with_date": "/Users/Evelyn/Desktop/ImagePi/test_79_2024-07-24-1614"
+    "camera_c": 1,
+    "camera_d": 1,
+    "timestamp": "test_85_2024-07-24-1803",
+    "folder_with_date": "/Users/Evelyn/Desktop/ImagePi/test_85_2024-07-24-1803"
 }

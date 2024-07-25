@@ -6,6 +6,10 @@ import io
 import logging
 from PIL import Image, ImageTk
 import tkinter as tk
+from dotenv import load_dotenv
+
+# Load environment variables from a .env file
+load_dotenv()
 
 # Configure logging
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
@@ -38,9 +42,15 @@ class SSHClientWrapper:
             logging.error(f"SSH command execution failed: {e}")
             return ""
 
-    def transfer_files(self, remote_path, local_path, hostname):
+    def transfer_files(self, remote_path, local_path):
         try:
-            os.system(f"scp -r imagepi@{hostname}:{remote_path} {local_path}")
+            sftp_client = self.ssh_client.open_sftp()
+            file_list = sftp_client.listdir(remote_path)
+            for file_name in file_list:
+                remote_file = os.path.join(remote_path, file_name)
+                local_file = os.path.join(local_path, file_name)
+                sftp_client.get(remote_file, local_file)
+            sftp_client.close()
             logging.info(f"Files transferred to {local_path}")
         except Exception as e:
             logging.error(f"File transfer failed: {e}")
@@ -96,7 +106,7 @@ class CameraSystem:
         return plant_folder
 
     def capture_image(self, image_folder):
-        cmd = f'sudo python /home/imagepi/camera_control_1.py {image_folder}'
+        cmd = f'sudo python /home/imagepi/camera_control.py {image_folder}'
         self.ssh_client.execute_command(cmd)
 
     def fetch_and_display_images(self, image_directory):
@@ -164,19 +174,21 @@ class CameraSystem:
     def transfer_images(self, plant_folder, image_folder):
         local_dir = self.config.get("folder_path", "/default/path")
         remote_dir = f"/home/imagepi/Images/{plant_folder}/{image_folder}"
-        pi_hostname = self.config.get("pi_hostname")
-        self.ssh_client.transfer_files(remote_dir, local_dir, pi_hostname)
+        self.ssh_client.transfer_files(remote_dir, local_dir)
 
 if __name__ == "__main__":
     client = paramiko.SSHClient()
     client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
     try:
-        client.connect('raspberrypi.local', username='pi', password='your_password')  # Use real credentials
+        pi_username = os.getenv('PI_USERNAME')
+        pi_password = os.getenv('PI_PASSWORD')
+        client.connect('raspberrypi.local', username=pi_username, password=pi_password)
         config_loader = ConfigLoader()
         camera_system = CameraSystem(client, tk.Tk(), config_loader)
         camera_system.inspect()
     finally:
         client.close()
+
 
 
 

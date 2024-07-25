@@ -32,7 +32,7 @@ class InputGUI:
             master (tk.Tk): The main window of the Tkinter application.
         """
         self.master = master
-        self.master.title("PhotoPI")
+        self.master.title("ImagePI")
         self.master.geometry("500x500")
         self.config = Config()
         self.network_manager = None
@@ -295,6 +295,7 @@ class InputGUI:
                     camera_system = CameraSystem(self.ssh_client, self.master, self.config)
                     camera_system.imaging()
                     self.update_gui_from_thread("Imaging started successfully.")
+                    
                 else:
                     self.update_gui_from_thread("SSH client is not initialized.")
             except Exception as e:

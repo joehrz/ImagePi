@@ -21,6 +21,7 @@ env/
 # Ignore Images file
 images
 *.png
+*.jpg
 
 # Ignore env file
 .env

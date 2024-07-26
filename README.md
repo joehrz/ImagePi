@@ -115,6 +115,8 @@ Configuration settings are managed through a JSON file (`params.json`). You can 
 
 ```plaintext
 ImagePi/
+├──README.md
+├──deploy_to_pi.sh
 │
 ├── main_system/
 │   ├── gui.py
@@ -124,11 +126,11 @@ ImagePi/
 │   ├── imagecapture.py
 │   ├── params.json
 │   ├── requirements.txt
-│   └── README.md
+│   
 │
 └── raspberry_pi/
     ├── camera_control.py
     ├── params.json
-    ├── requirements.txt
+
 
 

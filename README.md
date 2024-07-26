@@ -21,7 +21,7 @@
 - Raspberry Pi with camera(s) attached
 - Python 3.x
 - Required Python packages (listed in `raspberry_pi/requirements.txt`)
-- Additional packages: `libcamera-apps`, `RPi.GPIO`
+- Additional packages: `libcamera-apps`, `RPi.GPIO`, `wiringpi`
 
 ## Installation
 
@@ -30,7 +30,7 @@
 1. Clone the repository:
 
     ```bash
-    git clone https://github.com/your-username/ImagePi.git
+    git clone https://github.com/Dxxc/ImagePi.git
     cd ImagePi
     ```
 
@@ -59,16 +59,27 @@
 2. Install the required packages:
 
     ```bash
-    sudo apt-get install -y python3 python3-pip python3-rpi.gpio libcamera-apps
-    pip3 install -r raspberry_pi/requirements.txt
+    sudo apt-get install -y python3 python3-pip python3-rpi.gpio libcamera-apps wiringpi
+    sudo apt install -y python3-kms++ python3-libcamera python3-pyqt5 python3-prctl libatlas-base-dev ffmpeg
+    sudo pip3 install numpy --upgrade
+    sudo pip3 install picamera2
     ```
 
-3. Deploy the Raspberry Pi code:
+    These instructions are adapted from the [ArduCAM RaspberryPi repository](https://github.com/ArduCAM/RaspberryPi.git). See this repository for more details.
+
+3. Add support for Pi 4B (if applicable):
+
+    ```bash
+    cd /tmp
+    wget https://project-downloads.drogon.net/wiringpi-latest.deb
+    sudo dpkg -i wiringpi-latest.deb
+    ```
+
+4. Deploy the Raspberry Pi code:
 
     ```bash
     ./deploy_to_pi.sh
     ```
-
 ## Usage
 
 ### Main System
@@ -119,6 +130,5 @@ ImagePi/
     ├── camera_control.py
     ├── params.json
     ├── requirements.txt
-    └── README.md
 
 

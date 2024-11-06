@@ -1,3 +1,5 @@
+# main_app.py
+
 import tkinter as tk
 from tkinter import filedialog, messagebox
 import threading
@@ -7,17 +9,23 @@ import logging
 import time
 import os
 from dotenv import load_dotenv
+import multiprocessing  # Import multiprocessing to handle separate processes
 
 from imagecapture import CameraSystem
 from credentials import NetworkConfig
 from config import Config
 from network import NetworkManager
+# Remove the direct import of MainWindow from stream to prevent unintended side effects
+# from stream import MainWindow
 
 # Load environment variables from a .env file
 load_dotenv()
 
 # Configure the root logger in the main module
 logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+
+# Import the run_main_window function from stream.py
+from stream import run_main_window
 
 class InputGUI:
     """
@@ -38,6 +46,7 @@ class InputGUI:
         self.network_manager = None
         self.ssh_client = paramiko.SSHClient()
         self.ssh_client.set_missing_host_key_policy(paramiko.AutoAddPolicy())
+        self.master.protocol("WM_DELETE_WINDOW", self.on_closing)
 
         # Load credentials from environment variables
         self.pi_username = os.getenv('PI_USERNAME')
@@ -47,6 +56,9 @@ class InputGUI:
             self.setup_gui_components()
         else:
             self.master.quit()
+
+        # Keep track of the camera process
+        self.camera_process = None
 
     def initialize_network_and_ssh(self):
         """
@@ -165,11 +177,14 @@ class InputGUI:
         self.start_imaging_button = tk.Button(self.master, text="Start Imaging", command=self.start_imaging)
         self.start_imaging_button.grid(row=9, column=1)
 
+        self.live_inspection_button = tk.Button(self.master, text="Live Inspection", command=self.live_inspection)
+        self.live_inspection_button.grid(row=9, column=2)
+
         self.reset_button = tk.Button(self.master, text="Reset", command=self.reset)
-        self.reset_button.grid(row=9, column=2)
+        self.reset_button.grid(row=9, column=3)
 
         self.quit_button = tk.Button(self.master, text="Quit", command=self.master.quit)
-        self.quit_button.grid(row=9, column=3)
+        self.quit_button.grid(row=9, column=4)
 
     def browse_folder(self):
         """
@@ -186,14 +201,19 @@ class InputGUI:
         Returns:
             dict: A dictionary containing the input values.
         """
+        raw_folder_path = self.folder_path_entry.get().strip()
+        normalized_folder_path = os.path.normpath(raw_folder_path)
+        print(f"Normalized Folder Path: {normalized_folder_path}")  # Debugging
+
         return {
             'camera_a': self.camera_a_var.get(),
             'camera_b': self.camera_b_var.get(),
             'camera_c': self.camera_c_var.get(),
             'camera_d': self.camera_d_var.get(),
             'plant_name': self.plant_name_entry.get().strip(),
-            'folder_path': self.folder_path_entry.get().strip()
+            'folder_path': normalized_folder_path
         }
+
 
     def update_configuration(self, inputs):
         """
@@ -204,7 +224,8 @@ class InputGUI:
         """
         timestamp = datetime.now().strftime('%Y-%m-%d-%H%M')
         inputs['timestamp'] = inputs['plant_name'] + timestamp
-        inputs['folder_with_date'] = f"{inputs['folder_path']}/{inputs['timestamp']}"
+
+        inputs['folder_with_date'] = os.path.join(inputs['folder_path'], inputs['timestamp'])
 
         for key, value in inputs.items():
             self.config.set_value(key, value)
@@ -255,6 +276,7 @@ class InputGUI:
         """
         self.inspect_button.config(state=tk.DISABLED)
         self.start_imaging_button.config(state=tk.DISABLED)
+        self.live_inspection_button.config(state=tk.DISABLED)
 
     def enable_buttons(self):
         """
@@ -262,6 +284,7 @@ class InputGUI:
         """
         self.inspect_button.config(state=tk.NORMAL)
         self.start_imaging_button.config(state=tk.NORMAL)
+        self.live_inspection_button.config(state=tk.NORMAL)
 
     def perform_inspection(self):
         """
@@ -305,6 +328,70 @@ class InputGUI:
 
         threading.Thread(target=task).start()
 
+    def live_inspection(self):
+        """
+        Starts the PySide2 MainWindow in a separate process for live inspection and manages the remote steam_server.py script.
+        """
+        self.disable_buttons()
+
+        def task():
+            try:
+                raspberry_pi_ip = self.config.get_value('pi_hostname')
+                # raspberry_pi_ip = "130.179.113.194"  # Alternatively, retrieve dynamically
+
+                # Start steam_server.py on the Raspberry Pi in the background
+                # Using nohup to run the process independently
+                command_start_server = 'sudo nohup python /home/imagepi/steam_server.py > /dev/null 2>&1 &'
+                stdin, stdout, stderr = self.ssh_client.exec_command(command_start_server)
+                time.sleep(4)
+                # Optionally, you can read stdout and stderr if needed
+                logging.info("steam_server.py started on Raspberry Pi.")
+
+                # Check if the camera process is already running
+                if self.camera_process is None or not self.camera_process.is_alive():
+                    # Create a new process for the PySide2 GUI
+                    self.camera_process = multiprocessing.Process(
+                        target=run_main_window,
+                        args=(raspberry_pi_ip,),
+                        daemon=True  # Ensures the process exits when the main program does
+                    )
+                    self.camera_process.start()
+                    logging.info("Live Inspection window started successfully.")
+                    self.update_gui_from_thread("Live Inspection window started successfully.")
+
+                    # Start a monitoring thread to watch the camera_process
+                    monitor_thread = threading.Thread(target=self.monitor_camera_process, daemon=True)
+                    monitor_thread.start()
+                else:
+                    self.update_gui_from_thread("Live Inspection window is already running.")
+            except Exception as e:
+                self.update_gui_from_thread(f"Error starting Live Inspection: {str(e)}")
+                logging.error(f"Error in live_inspection: {e}")
+            finally:
+                self.enable_buttons()
+
+        threading.Thread(target=task).start()
+
+    def monitor_camera_process(self):
+        """
+        Monitors the PySide2 camera process. When it terminates, stops the steam_server.py script on the Raspberry Pi.
+        """
+        if self.camera_process:
+            self.camera_process.join()  # Wait for the camera_process to finish
+            logging.info("Live Inspection window has been closed.")
+
+            # Stop the steam_server.py script on the Raspberry Pi
+            try:
+                # Using pkill to terminate the steam_server.py process
+                command_stop_server = 'sudo pkill -f steam_server.py'
+                stdin, stdout, stderr = self.ssh_client.exec_command(command_stop_server)
+                # Optionally, you can read stdout and stderr if needed
+                logging.info("steam_server.py stopped on Raspberry Pi.")
+                self.update_gui_from_thread("Live Inspection ended and steam_server.py stopped.")
+            except Exception as e:
+                self.update_gui_from_thread(f"Error stopping steam_server.py: {str(e)}")
+                logging.error(f"Error stopping steam_server.py: {e}")
+
     def reboot_raspberry_pi(self):
         """
         Reboots the Raspberry Pi by sending a reboot command over SSH.
@@ -317,6 +404,27 @@ class InputGUI:
         except Exception as e:
             logging.error(f"Failed to send reboot command: {e}")
             messagebox.showerror("Reboot Error", f"Failed to send reboot command: {e}")
+
+    def on_closing(self):
+        """
+        Handles the window close event. Ensures that the PySide2 process is terminated and the remote server script is stopped.
+        """
+        if self.camera_process and self.camera_process.is_alive():
+            self.camera_process.terminate()
+            self.camera_process.join()
+            logging.info("Live Inspection window terminated by user.")
+
+            # Stop the steam_server.py script on the Raspberry Pi
+            try:
+                command_stop_server = 'sudo pkill -f steam_server.py'
+                stdin, stdout, stderr = self.ssh_client.exec_command(command_stop_server)
+                logging.info("steam_server.py stopped on Raspberry Pi due to user termination.")
+            except Exception as e:
+                logging.error(f"Error stopping steam_server.py on user termination: {e}")
+
+        self.master.destroy()
+
+
 
     def wait_for_pi_to_reboot(self):
         """
@@ -344,10 +452,14 @@ class InputGUI:
         if reboot_confirmation:
             self.reboot_raspberry_pi()
 
-if __name__ == "__main__":
+def main():
+    multiprocessing.freeze_support()  # For Windows support
     root = tk.Tk()
     app = InputGUI(root)
     root.mainloop()
+
+if __name__ == "__main__":
+    main()
 
 
 

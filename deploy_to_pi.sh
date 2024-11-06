@@ -2,8 +2,8 @@
 
 # Define the Raspberry Pi credentials and destination
 PI_USER="pi"
-PI_HOST="raspberrypi.local"
-PI_DIR="/home/pi/ImagePi"
+PI_HOST="pi.local"
+PI_DIR="/home/imagepi/"
 
 # Create the directory on the Raspberry Pi
 ssh ${PI_USER}@${PI_HOST} "mkdir -p ${PI_DIR}"

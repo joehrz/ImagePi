@@ -1,54 +1,67 @@
-# ImagePi
+# ImagePi: A Multi-Camera Raspberry Pi System
 
-**ImagePi** is a Python-based Raspberry Pi camera system designed for capturing, managing, and inspecting plant images. This project allows users to control multiple cameras connected to a Raspberry Pi, capture images, transfer them for inspection and analysis, and perform live inspections through a graphical user interface (GUI).
+**ImagePi** is a Python-based Raspberry Pi camera solution designed for capturing, managing, and inspecting images from multiple cameras. This version separates code into two main parts:
+
+1. A **Flask server** on the Raspberry Pi for streaming low-resolution video and providing high-resolution snapshots.  
+2. A **PySide2 GUI** for remote control and monitoring on a user’s local machine.
+
+---
 
 ## Features
 
-- **Capture Images:** Utilize multiple cameras connected to a Raspberry Pi to capture high-quality images of plants using the `picamera2` library.
-- **Image Management:** Transfer captured images to a specified directory for organized storage and easy access.
-- **Graphical User Interface (GUI):**
-  - **Tkinter-Based Main Interface:** Configure camera settings, capture images, transfer configurations, and manage system operations.
-  - **PySide2-Based Live Inspection Window:** Perform real-time inspections of the camera feeds through a separate, responsive window.
-- **Remote Server Control:** Start and stop server scripts (`steam_server.py`) on the Raspberry Pi remotely via SSH.
-- **System Reset:** Reset the system or reboot the Raspberry Pi in case of failures or maintenance needs.
-- **Configuration Management:** Manage system settings through a JSON configuration file (`params.json`) using the GUI.
+1. **Low-Resolution Live Streaming**  
+   - Stream from multiple cameras via a web endpoint for lightweight, continuous previews.
+
+2. **High-Resolution Snapshots**  
+   - Switch each camera to a full-resolution mode on demand to capture quality stills.
+
+3. **Multi-Camera Muxing**  
+   - Use an Arducam Multi-Camera Adapter or similar multiplexer with GPIO and I2C switching.
+
+4. **GUI Control**  
+   - A cross-platform PySide2 interface lets you:
+     - Start/stop individual streams,
+     - Capture snapshots (single or multiple in sequence),
+     - Select and change the local folder for saving images,
+     - Reboot the Pi,
+     - Quit the application.
+
+5. **Organized Project Structure**  
+   - Clearly separates server (Flask) and GUI (PySide2) code into different directories.
+
+---
 
 ## Requirements
 
-### Main System
+### Raspberry Pi (Server Side)
 
-- **Operating System:** Windows, macOS, or Linux
-- **Python Version:** Python 3.x
-- **Required Python Packages:** Listed in `main_system/requirements.txt`
-  - `Pillow`
-  - `paramiko`
-  - `python-dotenv`
+- **Hardware**:
+  - Raspberry Pi (e.g., Raspberry Pi 4B)
+  - Multiple cameras via an Arducam Multi-Camera Adapter (or similar)
+
+- **Software**:
+  - Raspberry Pi OS (Bullseye or newer, with libcamera)
+  - Python 3.x
+  - Recommended packages:
+    - `libcamera-apps`, `python3-libcamera`, `python3-picamera2`
+    - `opencv-python` (`cv2`)
+    - `RPi.GPIO`
+    - `numpy`
+    - `Flask`
+    - (See `requirements.txt` in the `server/` folder for a full list)
+
+### Local System (GUI Side)
+
+- **Operating System**: Windows, macOS, or Linux
+- **Python Version**: Python 3.x
+- **Python Packages**:
   - `PySide2`
   - `requests`
+  - `opencv-python`
+  - (See `requirements.txt` in the `gui/` folder)
 
+---
 
-### Raspberry Pi
-
-- **Hardware:**
-  - Raspberry Pi (compatible models, e.g., Raspberry Pi 4B)
-  - QH camera(s) attached
-  - Arducam Multi Camera Adapter Module V2.2 for Raspberry Pi
-- **Software:**
-  - **Operating System:** Raspberry Pi OS (preferably the latest version)
-  - **Python Version:** Python 3.x
-- **Required Packages:**
-  - `python3-pip`
-  - `python3-rpi.gpio`
-  - `libcamera-apps`
-  - `wiringpi`
-  - `python3-kms++`
-  - `python3-libcamera`
-  - `python3-pyqt5`
-  - `python3-prctl`
-  - `libatlas-base-dev`
-  - `ffmpeg`
-  - `numpy`
-  - `picamera2`
 
 
 ## Installation
@@ -58,7 +71,7 @@
 1. **Clone the Repository:**
 
     ```bash
-    git clone https://github.com/Dxxc/ImagePi.git
+    git clone https://github.com/joehrz/ImagePi.git
     cd ImagePi
     ```
 
@@ -68,13 +81,12 @@
     python -m venv venv
     source venv/bin/activate  # On Windows use `venv\Scripts\activate`
     ```
-
-3. **Install the Required Packages:**
+3. **Install Dependencies:**
 
     ```bash
-    pip install -r main_system/requirements.txt
+    cd gui
+    pip install -r requirements.txt
     ```
-
 ### Raspberry Pi
 
 1. **Update and Upgrade Your Raspberry Pi:**
@@ -148,69 +160,33 @@
 3. **Run the Application:**
 
     ```bash
-    python main_system/gui.py
+    cd ../scripts
+    python run_gui.py --ip <Raspberry_Pi_IP>
     ```
 
-4. **Using the GUI:**
+### Usage and Workflow
 
-    - **Configure Settings:** Select the cameras to use, enter the plant name, and specify the folder path for storing images.
-    - **Submit Configuration:** Save and transfer the configuration to the Raspberry Pi.
-    - **Start Imaging:** Begin capturing images based on the configured settings.
-    - **Inspect Images:** Use the "Inspect Images" button to review captured images.
-    - **Live Inspection:** Launch a separate PySide2 window for real-time camera feed inspection.
-    - **Reset System:** Reboot the Raspberry Pi if necessary.
-    - **Quit Application:** Exit the application gracefully.
-
-### Live Inspection
-
-- **Launching Live Inspection:**
+- **Start the Server on the Raspberry Pi:**
   
-  - Click the "Live Inspection" button in the main Tkinter GUI.
-  - This action will:
-    - Start the `steam_server.py` script on the Raspberry Pi via SSH.
-    - Launch the PySide2-based `MainWindow` in a separate process to display the live camera feeds.
+  - Ensures /video_feed/<camera_id> and /snapshot/<camera_id> endpoints are available
+  - Launch the GUI on your local machine
 
-- **Closing Live Inspection:**
+- **Taking Snapshots:**
   
-  - Closing the PySide2 window will automatically:
-    - Terminate the `steam_server.py` script running on the Raspberry Pi.
-    - Re-enable the buttons in the main Tkinter GUI for further operations.
+  - Click “Take Snapshot A/B/C/D” to get a high-res image from that camera.
+  - Or use “Take All Snapshots” to capture from all cameras in sequence.
 
-## Configuration
+- **Saving Images Locally:**
+  - The GUI will prompt for or use a default folder to store .jpg images.
 
-Configuration settings are managed through a JSON file (`params.json`) located in both the `main_system/` and `raspberry_pi/` directories. You can update this file directly or use the GUI to modify settings.
+- **Reboot or Quit:**
 
-### Parameters Managed:
+    - A “Reboot Pi” button may call a server endpoint to reboot the Pi (if implemented).
+    - A “Quit” button closes the GUI application.
 
-- **Camera Selection:** Enable or disable cameras A, B, C, and D.
-- **Plant Name:** Identifier for the plant being monitored.
-- **Folder Path:** Directory where captured images will be stored.
-- **Timestamp:** Automatically generated based on the plant name and current date-time.
-- **Other Custom Settings:** As defined in the `config.py` and utilized by the application.
 
-## File Structure
 
-```plaintext
-ImagePi/
-├── README.md
-├── deploy_to_pi.sh
-│
-├── main_system/
-│   ├── gui.py
-│   ├── network.py
-│   ├── credentials.py
-│   ├── config.py
-│   ├── imagecapture.py
-│   ├── stream.py
-│   ├── params.json
-│   ├── requirements.txt
-│   └── .env
-│   
-└── raspberry_pi/
-    ├── camera_control.py
-    ├── steam_server.py
-    ├── requirements.txt
-    ├── params.json
+
 
 
 
